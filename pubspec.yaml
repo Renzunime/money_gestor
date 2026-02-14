@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # --- IDIOMAS (Causa del conflicto anterior) ---
+  # --- IDIOMAS ---
   flutter_localizations:
     sdk: flutter
 
@@ -22,16 +22,21 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # --- Utilidades ---
-  # ACTUALIZADO: Cambiamos a 0.20.2 para solucionar el error
-  intl: ^0.20.2       
+  # CORREGIDO: Usamos la versión que te pide tu Flutter SDK
+  intl: ^0.20.2 
   
-  uuid: ^4.3.3        # Para generar IDs únicos
+  uuid: ^4.3.3
   path_provider: ^2.1.2 
 
   # --- UI & UX ---
-  fl_chart: ^0.66.0   # Gráficos
+  fl_chart: ^0.66.0
   google_fonts: ^6.1.0 
   lucide_icons: ^0.257.0
+  
+  confetti: ^0.7.0 
+
+  showcaseview: ^3.0.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
