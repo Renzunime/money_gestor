@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:showcaseview/showcaseview.dart'; // <--- 1. IMPORTANTE: Agregar este import
+import 'package:showcaseview/showcaseview.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+// Servicios
+import 'services/notification_service.dart';
 
 // Modelos
 import 'data/models/budget_model.dart';
@@ -15,31 +20,43 @@ import 'providers/recurring_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/goal_provider.dart';
 
-// UI y Configuración
+// UI
 import 'screens/home_screen.dart';
 import 'core/theme/app_theme.dart';
-import 'package:intl/date_symbol_data_local.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicialización de Hive
+  // 1. Inicialización de Base de Datos
   await Hive.initFlutter();
 
-  // Registro de Adapters
-  Hive.registerAdapter(TransactionModelAdapter());
-  Hive.registerAdapter(GoalModelAdapter());
-  Hive.registerAdapter(RecurringModelAdapter());
-  Hive.registerAdapter(BudgetModelAdapter());
+  // Registro de Adapters (Evita errores si se recarga)
+  if (!Hive.isAdapterRegistered(0))
+    Hive.registerAdapter(TransactionModelAdapter());
+  if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(GoalModelAdapter());
+  if (!Hive.isAdapterRegistered(2))
+    Hive.registerAdapter(RecurringModelAdapter());
+  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(BudgetModelAdapter());
 
-  // Abrir cajas de datos
+  // Abrir Cajas
   await Hive.openBox<TransactionModel>('transactions');
   await Hive.openBox<GoalModel>('goals');
   await Hive.openBox<RecurringModel>('recurring');
   await Hive.openBox<BudgetModel>('budgets');
 
-  // Inicializar formato de fechas en Español
+  // 2. Inicialización de Notificaciones
+  try {
+    final notificationService = NotificationService();
+    await notificationService.init();
+
+    // Programar la rutina diaria
+    await notificationService.scheduleDailyRoutine();
+    debugPrint("✅ Notificaciones iniciadas correctamente");
+  } catch (e) {
+    debugPrint("⚠️ ERROR EN NOTIFICACIONES (La app iniciará sin ellas): $e");
+  }
+
+  // 3. Idioma
   await initializeDateFormatting('es_ES', null);
 
   runApp(const MainApp());
@@ -75,8 +92,8 @@ class MainApp extends StatelessWidget {
           Locale('en', 'US'),
         ],
 
-        // 2. IMPORTANTE: Envolver el HomeScreen en un ShowCaseWidget
-        // Sin esto, las llaves (_addKey, etc) del tutorial no funcionarán.
+        // --- CORRECCIÓN AQUÍ ---
+        // 'builder' espera una función (context) => Widget.
         home: ShowCaseWidget(
           builder: (context) => const HomeScreen(),
         ),

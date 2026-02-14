@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart'; // <--- Para Vibración (Haptics)
 import '../data/models/transaction_model.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/goal_provider.dart';
@@ -24,22 +25,28 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String _selectedCategory = 'Comida';
   String? _selectedGoalId;
 
-  final List<String> _expenseCategories = [
-    'Comida',
-    'Transporte',
-    'Alquiler',
-    'Diversión',
-    'Salud',
-    'Educación',
-    'Inversiones',
-    'Ahorro'
+  // --- NUEVO: Configuración de Categorías con Iconos y Colores ---
+  final List<Map<String, dynamic>> _expenseCategories = [
+    {'name': 'Comida', 'icon': Icons.fastfood, 'color': Colors.orange},
+    {'name': 'Transporte', 'icon': Icons.directions_bus, 'color': Colors.blue},
+    {'name': 'Alquiler', 'icon': Icons.home, 'color': Colors.indigo},
+    {'name': 'Diversión', 'icon': Icons.movie, 'color': Colors.purple},
+    {'name': 'Salud', 'icon': Icons.local_hospital, 'color': Colors.red},
+    {'name': 'Educación', 'icon': Icons.school, 'color': Colors.green},
+    {'name': 'Inversiones', 'icon': Icons.trending_up, 'color': Colors.teal},
+    {'name': 'Ahorro', 'icon': Icons.savings, 'color': Colors.amber},
   ];
-  final List<String> _incomeCategories = [
-    'Sueldo',
-    'Freelance',
-    'Rentabilidad Inversiones',
-    'Regalos',
-    'Otros'
+
+  final List<Map<String, dynamic>> _incomeCategories = [
+    {'name': 'Sueldo', 'icon': Icons.attach_money, 'color': Colors.green},
+    {'name': 'Freelance', 'icon': Icons.computer, 'color': Colors.blueAccent},
+    {
+      'name': 'Rentabilidad',
+      'icon': Icons.auto_graph,
+      'color': Colors.purpleAccent
+    },
+    {'name': 'Regalos', 'icon': Icons.card_giftcard, 'color': Colors.pink},
+    {'name': 'Otros', 'icon': Icons.category, 'color': Colors.grey},
   ];
 
   @override
@@ -53,7 +60,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _isExpense = tx.isExpense;
       _selectedCategory = tx.category;
     } else {
-      _selectedCategory = _expenseCategories[0];
+      _selectedCategory = _expenseCategories[0]['name'];
     }
   }
 
@@ -77,6 +84,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   void _submitData() {
     if (_formKey.currentState!.validate()) {
+      HapticFeedback.mediumImpact(); // <--- VIBRACIÓN
+
       final title = _titleController.text;
       final amount = double.parse(_amountController.text);
       if (amount <= 0) return;
@@ -120,6 +129,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   void _deleteTransaction() {
+    HapticFeedback.heavyImpact(); // <--- VIBRACIÓN FUERTE AL BORRAR
     Provider.of<TransactionProvider>(context, listen: false)
         .deleteTransaction(widget.transactionToEdit!.id);
     Navigator.of(context).pop();
@@ -141,15 +151,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final goalProvider = Provider.of<GoalProvider>(context);
 
-    List<String> currentCategories =
-        _isExpense ? _expenseCategories : _incomeCategories;
-    if (!currentCategories.contains(_selectedCategory))
-      _selectedCategory = currentCategories[0];
+    // Seleccionamos la lista correcta de categorías
+    final currentList = _isExpense ? _expenseCategories : _incomeCategories;
+
+    // Verificamos si la categoría seleccionada existe en la lista actual
+    bool exists = currentList.any((cat) => cat['name'] == _selectedCategory);
+    if (!exists) _selectedCategory = currentList[0]['name'];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            widget.transactionToEdit == null ? 'Nueva Transacción' : 'Editar'),
+        // --- MEJORA: Título dinámico ---
+        title: Text(widget.transactionToEdit == null
+            ? 'Nuevo Movimiento'
+            : 'Editar Movimiento'),
         actions: [
           if (widget.transactionToEdit != null)
             IconButton(
@@ -165,13 +179,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. SELECTOR DE META
                 if (widget.transactionToEdit == null) ...[
                   _buildGoalSelector(goalProvider),
                   const SizedBox(height: 20),
                 ],
 
-                // 2. TIPO (GASTO/INGRESO)
                 IgnorePointer(
                   ignoring: _selectedGoalId != null,
                   child: Opacity(
@@ -182,7 +194,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
                 const SizedBox(height: 20),
 
-                // 3. MONTO
                 TextFormField(
                   controller: _amountController,
                   decoration: const InputDecoration(
@@ -205,7 +216,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // 4. DESCRIPCIÓN
                 TextFormField(
                   controller: _titleController,
                   decoration: const InputDecoration(
@@ -214,39 +224,80 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       border: OutlineInputBorder()),
                   validator: (val) => val!.isEmpty ? 'Ingresa un título' : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                // -------------------------------------------------------------
-                // SOLUCIÓN AL ERROR DE OVERFLOW:
-                // Ya no usamos Row. Usamos Column para apilarlos verticalmente.
-                // -------------------------------------------------------------
-
-                // 5. CATEGORÍA
+                // --- NUEVO SELECTOR VISUAL DE CATEGORÍAS ---
+                const Text('Categoría',
+                    style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
                 IgnorePointer(
                   ignoring: _selectedGoalId != null,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded:
-                        true, // Esto asegura que use todo el ancho sin romperse
-                    value: _selectedCategory,
-                    dropdownColor: const Color(0xFF1E293B),
-                    decoration: const InputDecoration(
-                        labelText: 'Categoría', border: OutlineInputBorder()),
-                    items: currentCategories
-                        .map((cat) => DropdownMenuItem(
-                            value: cat,
-                            child: Text(cat,
-                                overflow: TextOverflow
-                                    .ellipsis) // Corta el texto si es muy largo
-                            ))
-                        .toList(),
-                    onChanged: (val) =>
-                        setState(() => _selectedCategory = val!),
+                  child: SizedBox(
+                    height: 90, // Altura para el scroll horizontal
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: currentList.length,
+                      itemBuilder: (context, index) {
+                        final cat = currentList[index];
+                        final isSelected = _selectedCategory == cat['name'];
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick(); // Vibración suave
+                            setState(() => _selectedCategory = cat['name']);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 16),
+                            child: Column(
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? cat['color']
+                                        : Colors.grey[800],
+                                    shape: BoxShape.circle,
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: Colors.white, width: 2)
+                                        : null,
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                                color: (cat['color'] as Color)
+                                                    .withOpacity(0.4),
+                                                blurRadius: 8)
+                                          ]
+                                        : [],
+                                  ),
+                                  child: Icon(cat['icon'],
+                                      color: Colors.white, size: 28),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(cat['name'],
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.grey,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
+                // ---------------------------------------------
 
-                const SizedBox(height: 16), // Espacio entre Categoría y Fecha
+                const SizedBox(height: 24),
 
-                // 6. FECHA
                 InkWell(
                   onTap: _presentDatePicker,
                   child: InputDecorator(
@@ -255,17 +306,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         border: OutlineInputBorder(),
                         suffixIcon: Icon(Icons.calendar_today)),
                     child: Text(
-                      DateFormat('dd / MMMM / yyyy', 'es_ES')
-                          .format(_selectedDate),
-                      style: const TextStyle(fontSize: 16),
-                    ),
+                        DateFormat('dd / MMMM / yyyy', 'es_ES')
+                            .format(_selectedDate),
+                        style: const TextStyle(fontSize: 16)),
                   ),
                 ),
-                // -------------------------------------------------------------
 
                 const SizedBox(height: 30),
 
-                // BOTÓN DE ACCIÓN
                 ElevatedButton.icon(
                   onPressed: _submitData,
                   style: ElevatedButton.styleFrom(
@@ -294,10 +342,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  // WIDGET SELECTOR DE META
   Widget _buildGoalSelector(GoalProvider goalProvider) {
     if (goalProvider.goals.isEmpty) return const SizedBox.shrink();
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -342,10 +388,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   const Icon(Icons.arrow_drop_down, color: Colors.purpleAccent),
               items: goalProvider.goals.map((goal) {
                 return DropdownMenuItem(
-                  value: goal.id,
-                  child: Text(goal.name,
-                      style: const TextStyle(color: Colors.white)),
-                );
+                    value: goal.id,
+                    child: Text(goal.name,
+                        style: const TextStyle(color: Colors.white)));
               }).toList(),
               onChanged: (val) {
                 if (val != null) {
@@ -365,24 +410,25 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(12),
-      ),
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() {
-                _isExpense = true;
-                _selectedCategory = _expenseCategories[0];
-                _selectedGoalId = null;
-              }),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _isExpense = true;
+                  _selectedCategory = _expenseCategories[0]['name'];
+                  _selectedGoalId = null;
+                });
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: _isExpense ? Colors.redAccent : null,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                    color: _isExpense ? Colors.redAccent : null,
+                    borderRadius: BorderRadius.circular(8)),
                 alignment: Alignment.center,
                 child: Text('Gasto',
                     style: TextStyle(
@@ -393,17 +439,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() {
-                _isExpense = false;
-                _selectedCategory = _incomeCategories[0];
-                _selectedGoalId = null;
-              }),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _isExpense = false;
+                  _selectedCategory = _incomeCategories[0]['name'];
+                  _selectedGoalId = null;
+                });
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: !_isExpense ? Colors.greenAccent : null,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                    color: !_isExpense ? Colors.greenAccent : null,
+                    borderRadius: BorderRadius.circular(8)),
                 alignment: Alignment.center,
                 child: Text('Ingreso',
                     style: TextStyle(
